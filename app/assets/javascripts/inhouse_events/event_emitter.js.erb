@@ -1,0 +1,74 @@
+//= require jquery
+
+(function () {
+  'use strict';
+
+  function nullOnError(action) {
+    return function () {
+      try {
+        return action.apply(this, arguments);
+      } catch (e) {
+        return null;
+      }
+    };
+  }
+
+  var InhouseEvents = window.InhouseEvents;
+  if (typeof InhouseEvents !== 'object') {
+    InhouseEvents = window.InhouseEvents = {};
+  }
+
+  InhouseEvents.EventEmitter = function () {};
+  var eeProto = InhouseEvents.EventEmitter.prototype;
+
+  eeProto.generateTimestamp = nullOnError(function () {
+    return new Date().toISOString();
+  });
+
+  // Taken from http://stackoverflow.com/a/105074.
+  eeProto.str4x16 = function () {
+    return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  }
+
+  eeProto.generateUUID = nullOnError(function () {
+    var s = this.str4x16;
+    return [s() + s(), s(), s(), s(), s() + s() + s()].join('-');
+  });
+
+  eeProto.getTimezone = function () {
+    return new Date().getTimezoneOffset();
+  };
+
+  eeProto.getPageEventData = function () {
+    return {
+      event: {
+        page_url: window.location.href,
+        page_title: document.title,
+        referrer_url: document.referrer,
+        client_timestamp: this.generateTimestamp(),
+        client_timezone: this.getTimezone(),
+        client_event_id: this.generateUUID(),
+        event_type: 'pageview'
+      }
+    };
+  };
+
+  eeProto.emitPageView = function () {
+    var skipEvents = InhouseEvents.skipEvents;
+    // It is either 'true'
+    var shouldSkip = skipEvents === true ||
+      // or an array of event names to skip.
+      skipEvents && skipEvents.indexOf && skipEvents.indexOf('pageview') > -1
+    if (shouldSkip) {
+      return;
+    }
+    var url = '<%= InhouseEvents::Engine.routes.url_helpers.events_path %>';
+    var eventData = this.getPageEventData();
+    $.post(url, eventData);
+  };
+}());
+
+$(function() {
+  'use strict';
+  new InhouseEvents.EventEmitter().emitPageView();
+});

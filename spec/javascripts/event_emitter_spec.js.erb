@@ -1,0 +1,136 @@
+//= require 'helpers/mock-ajax'
+//= require 'inhouse_events/event_emitter'
+
+describe('InhouseEvents Event Emitter', function () {
+  beforeEach(function () {
+    jasmine.Ajax.install();
+  });
+
+  afterEach(function() {
+    jasmine.Ajax.uninstall();
+  });
+
+  it('POSTs to inhouse_events', function () {
+    var request;
+    new InhouseEvents.EventEmitter().emitPageView();
+    request = jasmine.Ajax.requests.mostRecent();
+    expect(request.url).
+      toBe('<%= InhouseEvents::Engine.routes.url_helpers.events_path %>');
+    expect(request.method).toBe('POST');
+  });
+
+  describe('event data', function () {
+    function getEventData(propName) {
+      new InhouseEvents.EventEmitter().emitPageView();
+      var data = jasmine.Ajax.requests.mostRecent().data();
+      return data['event[' + propName + ']'][0];
+    }
+
+    it('includes page url', function () {
+      // Current url depends on the test runner and various parameters. Don't
+      // know how to fake it. However, we could assume that it always runs under
+      // /teaspoon.
+      expect(getEventData('page_url')).toMatch('/teaspoon/');
+    });
+
+    it('includes page title', function () {
+      // Page title depends on the test runner and various parameters. Don't
+      // know how to fake it.
+      expect(getEventData('page_title')).
+        toBe('Teaspoon :: Javascript Test Runner');
+    });
+
+    it('includes the referrer url', function () {
+      // Referrer url is probably going to be empty in the test runner. Don't
+      // know how to fake it.
+      expect(getEventData('referrer_url')).toBe('');
+    });
+
+    it('includes the timestamp', function () {
+      var time = new Date(Date.UTC(2015, 8, 16, 10, 11, 12, 172));
+      jasmine.clock().mockDate(time);
+      expect(getEventData('client_timestamp')).toBe('2015-09-16T10:11:12.172Z');
+    });
+
+    describe('when timestamp capturing fails', function () {
+      var toISOString;
+
+      beforeEach(function () {
+        toISOString = Date.prototype.toISOString;
+        Date.prototype.toISOString = function () {
+          throw "Not supported";
+        };
+      });
+
+      afterEach(function () {
+        Date.prototype.toISOString = toISOString;
+      });
+
+      it('sets timestamp to null', function () {
+        expect(getEventData('client_timestamp')).toBe('');
+      });
+    });
+
+    it('includes the client timezone', function () {
+      // spec/teaspoon_env.rb specifies the default TZ.
+      var EUROPE_BERLIN_TZ = '-120';
+      expect(getEventData('client_timezone')).toBe(EUROPE_BERLIN_TZ);
+    });
+
+    it('generates an event identifier', function () {
+      var uuidRegExp = new RegExp('^' + [
+        '[0-9a-f]{8}',
+        '[0-9a-f]{4}',
+        '[0-9a-f]{4}',
+        '[0-9a-f]{4}',
+        '[0-9a-f]{12}'
+      ].join('-') + '$', 'i');
+      expect(getEventData('client_event_id')).toMatch(uuidRegExp);
+    });
+
+    it('generates unique event identifiers', function () {
+      var eventId1 = getEventData('client_event_id');
+      var eventId2 = getEventData('client_event_id');
+      expect(eventId1).not.toEqual(eventId2);
+    });
+
+    describe('when event identifier generation fails', function () {
+      var str4x16;
+
+      beforeEach(function () {
+        str4x16 = InhouseEvents.EventEmitter.prototype.str4x16;
+        InhouseEvents.EventEmitter.prototype.str4x16 = function () {
+          throw "Error";
+        };
+      });
+
+      afterEach(function () {
+        InhouseEvents.EventEmitter.prototype.str4x16 = str4x16;
+      });
+
+      it('sets event identifier to null', function () {
+        expect(getEventData('client_event_id')).toBe('');
+      });
+    });
+
+    it('sets the event type to pageview', function () {
+      expect(getEventData('event_type')).toBe('pageview');
+    });
+  });
+
+  it('does not send pageview events when prevented', function () {
+    InhouseEvents.skipEvents = true;
+    new InhouseEvents.EventEmitter().emitPageView();
+    expect(jasmine.Ajax.requests.mostRecent()).toBe(undefined);
+  });
+
+  it('does not send pageview events when specifically prevented', function () {
+    InhouseEvents.skipEvents = ['pageview'];
+    new InhouseEvents.EventEmitter().emitPageView();
+    expect(jasmine.Ajax.requests.mostRecent()).toBe(undefined);
+
+    InhouseEvents.skipEvents = [];
+    new InhouseEvents.EventEmitter().emitPageView();
+    expect(jasmine.Ajax.requests.mostRecent()).not.toBe(undefined);
+  });
+});
