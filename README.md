@@ -1,16 +1,16 @@
 ![Inhouse logo](inhouse-logo.svg)
 
-Inhouse Events is an event tracking gem for web analytics for Rails apps. It could also be extended to track custom events in the future.
+Inhouse Events is an event tracking library for web analytics, for Ruby on Rails apps.
 
 ## Design Approach
 
-The guiding idea behind this library is "less is more". In some set-ups it could be useful as a simpler alternative to fully featured web analytics solutions. The approach is partly inspired by the [Lean Analytics book](http://leananalyticsbook.com).
+The guiding principle behind this library is "less is more". In some set-ups it could be useful as a simpler alternative to fully featured web analytics solutions. The approach is partly inspired by the [Lean Analytics book](http://leananalyticsbook.com).
 
 ## Benefits
 
-The main benefits of this gem are:
+The main benefits of this library are:
 
-- Events (currently `pageviews`) are stored in-house, in your application's database. This gives you better control of your data.
+- Events (currently `pageviews`) are stored in-house, in the application database. This gives you better control of your data.
 - The JavaScript used for tracking events is local to the application and would typically not be blocked by ad-blockers.
 
 ## Features
